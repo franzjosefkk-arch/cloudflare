@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "automobile-beckmann",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-08-01",
+
+  // Konto-ID ist kein Geheimnis — sie steht in jeder Dashboard-URL. Die
+  // Berechtigung kommt aus CLOUDFLARE_API_TOKEN, siehe DEPLOYMENT.md.
+  "account_id": "36b159e1e59c2eb2a54b848c0bc75cf3",
+
+  // Der statische Export. `run_worker_first` steht auf der einen Route, die
+  // der Worker selbst beantwortet — alles andere geht direkt an die Assets,
+  // ohne den Worker überhaupt zu starten.
+  "assets": {
+    "directory": "./out",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/anfrage"]
+  },
+
+  // Nicht geheim, deshalb hier statt als Secret. RESEND_API_KEY wird über
+  // `wrangler secret put RESEND_API_KEY` gesetzt, siehe DEPLOYMENT.md.
+  "vars": {
+    "EMPFAENGER": "info@automobilebeckmann.de",
+    "ABSENDER": "Website Automobile Beckmann <website@automobilebeckmann.de>"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

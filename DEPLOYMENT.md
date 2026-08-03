@@ -1,34 +1,58 @@
-# Deployment auf Cloudflare Pages
+# Deployment auf Cloudflare
 
-Die Seite ist ein statischer Export. Cloudflare Pages liefert `out/` aus und führt alles unter
-`functions/` als Worker aus — so bleibt die Seite ein reiner Export und bekommt trotzdem einen
-Endpunkt für das Formular.
+Die Seite läuft als **Worker mit statischen Assets** — so wie die übrigen Seiten in diesem
+Konto. Cloudflare liefert den Export aus `out/` direkt aus; der Worker
+(`worker/index.ts`) läuft nur für die eine Route, die eine statische Seite nicht selbst
+bedienen kann: `POST /api/anfrage`. Alles andere geht an den Assets-Dienst, ohne dass der
+Worker überhaupt startet (`run_worker_first`).
 
-## 1. Projekt anlegen
+Konfiguration steht in [`wrangler.jsonc`](wrangler.jsonc). Konto-ID ist bereits eingetragen.
 
-Cloudflare Dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git** →
-dieses Repository auswählen.
+## 1. API-Token anlegen
 
-| Einstellung | Wert |
+Das ist das Einzige, was noch fehlt.
+
+Cloudflare Dashboard → **My Profile** → **API Tokens** → **Create Token** →
+Vorlage **„Edit Cloudflare Workers"**.
+
+| Bereich | Berechtigung |
 |---|---|
-| Framework preset | `Next.js (Static HTML Export)` — oder `None` |
-| Build command | `npm run build` |
-| Build output directory | `out` |
-| Root directory | *(leer)* |
-| Node-Version | `22` (siehe unten) |
+| Account · Workers Scripts | Edit |
+| Account · Account Settings | Read |
+| Zone · Workers Routes | Edit *(erst nötig, wenn die eigene Domain aufgeschaltet wird)* |
+| Zone · DNS | Edit *(dito)* |
 
-Die Node-Version wird über die Umgebungsvariable `NODE_VERSION = 22` gesetzt. Ältere Versionen
-scheitern am Build.
+Token kopieren und als Umgebungsvariable setzen:
 
-`functions/` wird von Pages automatisch erkannt und muss nicht konfiguriert werden.
+```bash
+export CLOUDFLARE_API_TOKEN='...'
+```
 
-## 2. Formularversand einrichten
+Der Token ist ein Geheimnis. Er gehört nicht ins Repository und nicht in eine Datei, die
+committet wird.
+
+## 2. Deployen
+
+```bash
+npm run deploy      # baut und veröffentlicht in einem Schritt
+```
+
+Danach liegt die Seite unter `https://automobile-beckmann.<subdomain>.workers.dev`.
+Wrangler nennt die genaue Adresse am Ende der Ausgabe.
+
+Vorher lokal ansehen — dafür braucht es keinen Token:
+
+```bash
+npm run preview     # baut und startet wrangler dev auf http://localhost:8787
+```
+
+## 3. Formularversand einrichten
 
 Ohne diesen Schritt antwortet `/api/anfrage` mit **503**. Das Formular fängt das ab und zeigt
 dem Besucher Telefonnummer und E-Mail-Link — es geht also nie eine Anfrage still verloren.
 Trotzdem sollte der Versand vor dem Livegang stehen.
 
-### 2.1 Resend vorbereiten
+### 3.1 Resend vorbereiten
 
 1. Konto auf [resend.com](https://resend.com) anlegen.
 2. Unter **Domains** die Domain `automobilebeckmann.de` hinzufügen und die angezeigten
@@ -39,54 +63,62 @@ Trotzdem sollte der Versand vor dem Livegang stehen.
 Ohne verifizierte Domain versendet Resend nur an die eigene Kontoadresse — zum Testen reicht
 das, für den Betrieb nicht.
 
-### 2.2 Variablen in Pages setzen
-
-**Settings → Environment variables**, für *Production* **und** *Preview*:
-
-| Name | Typ | Wert |
-|---|---|---|
-| `RESEND_API_KEY` | **Secret** | der Schlüssel aus 2.1 |
-| `EMPFAENGER` | Text | `info@automobilebeckmann.de` |
-| `ABSENDER` | Text | `Website Automobile Beckmann <website@automobilebeckmann.de>` |
-| `NODE_VERSION` | Text | `22` |
-
-`RESEND_API_KEY` muss als **Secret** angelegt werden, nicht als Text — sonst steht er im
-Klartext im Dashboard und in den Build-Logs.
-
-Die Absenderadresse muss auf der in 2.1 verifizierten Domain liegen. Antwortet der Betrieb auf
-die Benachrichtigung, geht die Antwort dank `reply_to` direkt an den Kunden.
-
-### 2.3 Prüfen
-
-Nach dem Deployment:
+### 3.2 Schlüssel hinterlegen
 
 ```bash
-curl -i https://<projekt>.pages.dev/api/anfrage \
+npx wrangler secret put RESEND_API_KEY
+```
+
+Empfänger- und Absenderadresse stehen als `vars` in `wrangler.jsonc` und sind nicht geheim.
+Die Absenderadresse muss auf der in 3.1 verifizierten Domain liegen. Antwortet der Betrieb auf
+die Benachrichtigung, geht die Antwort dank `reply_to` direkt an den Kunden.
+
+### 3.3 Prüfen
+
+```bash
+curl -i https://<adresse>/api/anfrage \
   -H 'Content-Type: application/json' \
   -d '{"anliegen":"HU & AU","fahrzeug":"VW Golf, 2016","name":"Test","telefon":"0421123456"}'
 ```
 
-- `200 {"ok":true}` — Versand steht, die Mail sollte im Postfach liegen.
-- `503` — `RESEND_API_KEY` fehlt oder ist nicht auf dieser Umgebung gesetzt.
-- `502` — Resend hat abgelehnt: meist eine nicht verifizierte Absenderdomain.
-- `422` — Pflichtfelder fehlen (das ist der erwartete Schutz, kein Fehler).
+| Antwort | Bedeutung |
+|---|---|
+| `200 {"ok":true}` | Versand steht, die Mail sollte im Postfach liegen |
+| `503` | `RESEND_API_KEY` ist nicht gesetzt |
+| `502` | Resend hat abgelehnt — meist eine nicht verifizierte Absenderdomain |
+| `422` | Pflichtfelder fehlen — das ist der erwartete Schutz, kein Fehler |
+| `405` | die Route wurde nicht per POST aufgerufen |
 
 Danach einmal das echte Formular auf `/kontakt/` absenden. Der Bot-Schutz verwirft alles, was
 in unter drei Sekunden abgeschickt wird — beim Testen also nicht hetzen.
 
-## 3. Domain aufschalten
+## 4. Domain aufschalten
 
-**Custom domains** → `automobilebeckmann.de` und `www.automobilebeckmann.de` hinzufügen.
-Cloudflare legt die DNS-Einträge und das Zertifikat selbst an.
+Erst tun, wenn [`AUSTAUSCHLISTE.md`](AUSTAUSCHLISTE.md) abgearbeitet ist. Solange die
+Öffnungszeiten unbestätigt sind und im Impressum Lücken markiert stehen, sollte die Seite
+nicht unter der echten Adresse laufen.
 
-Eine der beiden Varianten sollte per Weiterleitungsregel auf die andere zeigen, damit die
-Seite nicht unter zwei Adressen indexiert wird. Die kanonischen URLs in den Metadaten zeigen
-auf `https://automobilebeckmann.de` **ohne** `www` — festgelegt in `lib/betrieb.ts` unter
-`betrieb.url`. Wird `www` zur Hauptadresse, muss dieser Wert mitgeändert werden.
+In `wrangler.jsonc` ergänzen:
 
-## 4. Nach dem Livegang
+```jsonc
+"routes": [
+  { "pattern": "automobilebeckmann.de", "custom_domain": true },
+  { "pattern": "www.automobilebeckmann.de", "custom_domain": true }
+]
+```
 
-- [ ] `AUSTAUSCHLISTE.md` abgearbeitet — besonders Impressum und Öffnungszeiten
+Cloudflare legt DNS-Eintrag und Zertifikat selbst an. Eine der beiden Varianten sollte per
+Weiterleitungsregel auf die andere zeigen, damit die Seite nicht unter zwei Adressen indexiert
+wird.
+
+Die kanonischen URLs zeigen auf `https://automobilebeckmann.de` **ohne** `www` — festgelegt in
+`lib/betrieb.ts` unter `betrieb.url`. Wird `www` zur Hauptadresse, muss dieser Wert
+mitgeändert werden.
+
+## 5. Nach dem Livegang
+
+- [ ] [`AUSTAUSCHLISTE.md`](AUSTAUSCHLISTE.md) abgearbeitet — besonders Impressum und
+      Öffnungszeiten
 - [ ] Testanfrage über das Formular kam an und die Antwort landete beim Absender
 - [ ] Google Search Console eingerichtet, `sitemap.xml` eingereicht
 - [ ] Google-Unternehmensprofil: Adresse, Telefonnummer und Öffnungszeiten stimmen mit
@@ -96,8 +128,8 @@ auf `https://automobilebeckmann.de` **ohne** `www` — festgelegt in `lib/betrie
 
 ## Umzug auf einen anderen Anbieter
 
-Der Export ist gewöhnliches HTML und läuft auf jedem Webserver. Nur `functions/api/anfrage.ts`
-ist Cloudflare-spezifisch: Der Code ist eine einzelne `onRequestPost`-Funktion ohne
-Cloudflare-Bindings und lässt sich mit wenigen Zeilen auf eine Netlify Function, eine Vercel
-Function oder eine Route in einem eigenen Server übersetzen. Das Formular spricht nur
+Der Export in `out/` ist gewöhnliches HTML und läuft auf jedem Webserver. Der einzige
+dynamische Teil ist `lib/anfrage.ts` — eine reine Funktion über `Request` und `Env` ohne
+Bindung an eine Laufzeit. `worker/index.ts` ist nur die Cloudflare-Hülle darum; für Netlify,
+Vercel oder einen eigenen Server genügt eine ebenso kleine Hülle. Das Formular spricht nur
 `POST /api/anfrage` an und erwartet `200` bei Erfolg.

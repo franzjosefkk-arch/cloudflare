@@ -1,13 +1,11 @@
 /**
- * Cloudflare Pages Function: nimmt die Terminanfrage entgegen und schickt sie
- * per Resend an den Betrieb.
+ * Nimmt die Terminanfrage entgegen und schickt sie per Resend an den Betrieb.
  *
- * Läuft neben dem statischen Export: Pages liefert `out/` aus und führt alles
- * unter `functions/` als Worker aus. Die Seite bleibt also ein reiner Export,
- * bekommt aber trotzdem einen Endpunkt.
+ * Reine Funktion über Request und Env — ohne Bindung an eine bestimmte
+ * Laufzeit. `worker/index.ts` ruft sie auf; genauso könnte es eine Pages
+ * Function oder eine Route in einem eigenen Server tun.
  *
- * Benötigte Umgebungsvariablen (Cloudflare Pages → Settings → Environment
- * variables), siehe DEPLOYMENT.md:
+ * Benötigte Umgebungsvariablen (siehe DEPLOYMENT.md):
  *   RESEND_API_KEY   Secret. API-Schlüssel von resend.com
  *   EMPFAENGER       z. B. info@automobilebeckmann.de
  *   ABSENDER         verifizierte Absenderadresse, z. B.
@@ -18,15 +16,10 @@
  * nie eine Anfrage still verloren.
  */
 
-type Env = {
+export type AnfrageEnv = {
   RESEND_API_KEY?: string
   EMPFAENGER?: string
   ABSENDER?: string
-}
-
-type PagesContext = {
-  request: Request
-  env: Env
 }
 
 type Anfrage = {
@@ -66,7 +59,7 @@ function escape(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-export const onRequestPost = async ({ request, env }: PagesContext): Promise<Response> => {
+export async function verarbeiteAnfrage(request: Request, env: AnfrageEnv): Promise<Response> {
   let roh: Anfrage
   try {
     roh = (await request.json()) as Anfrage
@@ -180,6 +173,3 @@ Der Kunde erwartet einen Rückruf innerhalb eines Werktags.
 
   return antwort({ ok: true }, 200)
 }
-
-// Es wird bewusst nur `onRequestPost` exportiert: Pages beantwortet damit jede
-// andere Methode selbst mit 405, ohne dass wir einen Catch-all brauchen.

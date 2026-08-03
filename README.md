@@ -8,9 +8,9 @@ Formular und über den Anruf, der in diesem Gewerbe mindestens genauso gut konve
 | | |
 |---|---|
 | **Stack** | Next.js 16 (App Router, `output: 'export'`) · TypeScript strict · Tailwind CSS 4 · Radix UI |
-| **Deployment** | Cloudflare Pages — siehe [DEPLOYMENT.md](DEPLOYMENT.md) |
+| **Deployment** | Cloudflare Worker mit statischen Assets — siehe [DEPLOYMENT.md](DEPLOYMENT.md) |
 | **Sprache** | Deutsch, Sie-Form |
-| **Tests** | Playwright, 68 Tests auf Desktop und Telefon, inkl. axe gegen WCAG 2.2 AA |
+| **Tests** | Playwright, 70 Tests auf Desktop und Telefon, inkl. axe gegen WCAG 2.2 AA |
 
 ## Loslegen
 
@@ -25,6 +25,9 @@ npm run start        # den Export lokal ausliefern (Port 3000)
 npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint
 npm test             # Playwright gegen ./out — setzt einen Build voraus
+
+npm run preview      # Build + wrangler dev — die Seite samt Endpunkt lokal
+npm run deploy       # Build + wrangler deploy — braucht CLOUDFLARE_API_TOKEN
 ```
 
 ## Aufbau
@@ -44,10 +47,12 @@ components/
   ui/                    Grundbausteine nach shadcn/ui-Konvention (cva + cn)
   site/                  Bausteine dieser Seite
 
-functions/api/anfrage.ts Cloudflare Pages Function: nimmt die Anfrage entgegen,
-                         schickt sie per Resend an den Betrieb
+worker/index.ts          Cloudflare Worker: beantwortet POST /api/anfrage,
+                         alles andere geht direkt an die statischen Assets
+wrangler.jsonc           Deployment-Konfiguration
 
 lib/betrieb.ts           Einzige Quelle der Wahrheit für alle Betriebsdaten
+lib/anfrage.ts           Verarbeitung der Terminanfrage, laufzeitunabhängig
 lib/seo.ts               Metadaten und strukturierte Daten (schema.org)
 
 tests/                   Playwright: Seiten, Formular, Barrierefreiheit
