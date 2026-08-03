@@ -8,7 +8,7 @@ Formular und über den Anruf, der in diesem Gewerbe mindestens genauso gut konve
 | | |
 |---|---|
 | **Stack** | Next.js 16 (App Router, `output: 'export'`) · TypeScript strict · Tailwind CSS 4 · Radix UI |
-| **Deployment** | Cloudflare — als Worker mit Assets oder als Pages, siehe [DEPLOYMENT.md](DEPLOYMENT.md) |
+| **Deployment** | GitHub Actions → Cloudflare Pages; von Hand auch als Worker, siehe [DEPLOYMENT.md](DEPLOYMENT.md) |
 | **Sprache** | Deutsch, Sie-Form |
 | **Tests** | Playwright, 70 Tests auf Desktop und Telefon, inkl. axe gegen WCAG 2.2 AA |
 
@@ -59,6 +59,7 @@ lib/anfrage.ts           Verarbeitung der Terminanfrage, laufzeitunabhängig
 lib/seo.ts               Metadaten und strukturierte Daten (schema.org)
 
 tests/                   Playwright: Seiten, Formular, Barrierefreiheit
+.github/workflows/ci.yml Prüft bei jedem Push und veröffentlicht, wenn grün
 ```
 
 ### `lib/betrieb.ts` ist die einzige Quelle

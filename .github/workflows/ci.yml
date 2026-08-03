@@ -1,0 +1,97 @@
+name: Prüfen und veröffentlichen
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Bei mehreren Pushes hintereinander zählt nur der letzte.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruefen:
+    name: Build, Typen, Lint und Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typen prüfen
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Bauen
+        run: npm run build
+
+      # Die Playwright-Konfiguration greift auf ein vorinstalliertes Chromium
+      # zurück, wenn eines da ist — hier ist keines, also holt sie ihr eigenes.
+      - name: Browser installieren
+        run: npx playwright install --with-deps chromium
+
+      - name: Tests
+        run: npm test
+
+      - name: Testbericht sichern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-bericht
+          path: playwright-report/
+          retention-days: 14
+
+      # Der Export wird an den Deploy-Job weitergereicht, statt ihn dort
+      # ein zweites Mal zu bauen.
+      - name: Export sichern
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: export
+          path: out/
+          retention-days: 1
+
+  veroeffentlichen:
+    name: Auf Cloudflare Pages veröffentlichen
+    needs: pruefen
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Nur Pushes auf den Standardbranch gehen in die Produktion; jeder andere
+    # Branch landet als Vorschau unter einer eigenen Adresse.
+    environment:
+      name: ${{ github.ref_name == github.event.repository.default_branch && 'production' || 'preview' }}
+      url: ${{ steps.deploy.outputs.deployment-url }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: export
+          path: out
+
+      - name: Veröffentlichen
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy out
+            --project-name automobile-beckmann
+            --branch ${{ github.ref_name }}
+
+      - name: Adresse ausgeben
+        run: echo "Veröffentlicht unter ${{ steps.deploy.outputs.deployment-url }}" >> "$GITHUB_STEP_SUMMARY"

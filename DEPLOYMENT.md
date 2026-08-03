@@ -19,6 +19,34 @@ Funktional macht das für die Website keinen Unterschied.
 
 **Konto-ID** ist in `wrangler.jsonc` bereits eingetragen.
 
+---
+
+## Der einfachste Weg: GitHub Actions
+
+`.github/workflows/ci.yml` prüft und veröffentlicht bei jedem Push. Dafür sind lokal weder
+Wrangler noch ein Token nötig — es genügt, zwei Werte einmal in GitHub zu hinterlegen:
+
+Repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+| Name | Wert |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Token aus Schritt 1 (Berechtigung **Pages · Edit**) |
+| `CLOUDFLARE_ACCOUNT_ID` | `36b159e1e59c2eb2a54b848c0bc75cf3` |
+
+Danach läuft bei jedem Push: Typen, Lint, Build, 70 Tests — und erst wenn alles grün ist, geht
+es an Cloudflare. Pushes auf den Standardbranch landen in der Produktion, jeder andere Branch
+bekommt eine eigene Vorschauadresse. Die Adresse steht danach in der Zusammenfassung des
+Workflow-Laufs.
+
+Schlägt ein Test fehl, wird nicht veröffentlicht und der Playwright-Bericht hängt als Artefakt
+am Lauf.
+
+Das Pages-Projekt legt Wrangler beim ersten Lauf selbst an, wenn es noch nicht existiert.
+
+---
+
+## Von Hand: die beiden Wege
+
 ## 1. API-Token anlegen
 
 Cloudflare Dashboard → **My Profile** → **API Tokens** → **Create Token**.
