@@ -79,7 +79,14 @@ npm run deploy        # Worker mit statischen Assets
 npm run deploy:pages  # oder: Cloudflare Pages
 ```
 
-Wrangler nennt die genaue Adresse am Ende der Ausgabe.
+Wrangler nennt die genaue Adresse am Ende der Ausgabe. Beim allerersten Mal legt er das
+Pages-Projekt an und fragt nach dem Produktionsbranch — dort
+`claude/automobil-beckmann-website-8qbxi4` angeben, sonst gilt jeder Deploy als Vorschau und
+landet nicht unter `automobile-beckmann.pages.dev`.
+
+Beim Pages-Weg meldet Wrangler, `wrangler.jsonc` fehle `pages_build_output_dir`, und ignoriert
+die Datei. Das ist richtig so: Die Datei beschreibt den Worker-Weg, das Ausgabeverzeichnis
+steht beim Pages-Weg im Befehl. Die Warnung kann stehen bleiben.
 
 Vorher lokal ansehen — dafür braucht es keinen Token:
 
@@ -113,11 +120,23 @@ Worker-Weg:
 npx wrangler secret put RESEND_API_KEY
 ```
 
-Pages-Weg: Dashboard → das Projekt → **Settings** → **Environment variables** →
-`RESEND_API_KEY` als **Secret** anlegen, dazu `EMPFAENGER` und `ABSENDER` als Text.
+Pages-Weg — hier greifen die `vars` aus `wrangler.jsonc` **nicht**, alle drei Werte müssen
+gesetzt werden:
 
-Empfänger- und Absenderadresse stehen für den Worker-Weg als `vars` in `wrangler.jsonc` und
-sind nicht geheim.
+```bash
+npx wrangler pages secret put RESEND_API_KEY --project-name automobile-beckmann
+npx wrangler pages secret put ABSENDER --project-name automobile-beckmann
+npx wrangler pages secret put EMPFAENGER --project-name automobile-beckmann
+```
+
+Alternativ im Dashboard: das Pages-Projekt → **Settings** → **Variables and Secrets**.
+
+`EMPFAENGER` und `ABSENDER` sind keine Geheimnisse; die Funktion hat für beide einen
+Rückfallwert (`info@automobilebeckmann.de` bzw. eine Resend-Testadresse). Für den echten
+Betrieb muss `ABSENDER` aber auf der in 3.1 verifizierten Domain liegen — sonst lehnt Resend
+mit 502 ab.
+
+Nach dem Setzen einmal neu deployen, damit die Function die Werte sieht.
 Die Absenderadresse muss auf der in 3.1 verifizierten Domain liegen. Antwortet der Betrieb auf
 die Benachrichtigung, geht die Antwort dank `reply_to` direkt an den Kunden.
 
