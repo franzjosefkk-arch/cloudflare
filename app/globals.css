@@ -1,0 +1,242 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------
+   Designsystem „Ersatzteilkatalog"
+
+   Die Seite kennt zwei Materialien, die sich beim Scrollen abwechseln:
+
+   NEGATIV  — die Mikrofiche. Tiefes Tintenblau, Linienzeichnung in
+              hellem Cyan-Weiß, Positionsnummern in Signalorange.
+   POSITIV  — die gedruckte Katalogseite. Kühles technisches Papier,
+              Haarlinien-Raster, Tabellen, Positionsnummern in Ink.
+
+   Signalorange ist die einzige gesättigte Farbe und markiert immer
+   dasselbe: „hier ist die Position, hier wird gehandelt".
+   ------------------------------------------------------------------ */
+
+@theme {
+  /* --- Negativ: die Mikrofiche --- */
+  --color-ink-950: #06111c;
+  --color-ink-900: #0a1826;
+  --color-ink-800: #102434;
+  --color-ink-700: #163143;
+  --color-ink-600: #1f4256;
+  --color-ink-500: #2d5a72;
+
+  /* Linienzeichnung auf dem Negativ */
+  --color-fiche-100: #eaf4f8;
+  --color-fiche-200: #cfe4ed;
+  --color-fiche-300: #a5cbdb;
+  --color-fiche-400: #74a8bf;
+
+  /* --- Positiv: die Katalogseite --- */
+  --color-blatt-50: #ffffff;
+  --color-blatt-100: #f2f5f7;
+  --color-blatt-200: #e5eaee;
+  --color-blatt-300: #d2dae0;
+  /* blatt-400 ist eine Linien- und Rahmenfarbe — für Text zu hell (2,2:1). */
+  --color-blatt-400: #a9b6c0;
+  /* blatt-500 ist die gedämpfte Textfarbe: 5,7:1 auf Weiß, 5,2:1 auf blatt-100. */
+  --color-blatt-500: #5a6873;
+
+  /* --- Signal: Position und Handlung --- */
+  --color-signal-500: #ff6a13;
+  --color-signal-600: #e85800;
+  /* Textfähige Variante auf hellem Grund (>= 4.5:1 auf Weiß) */
+  --color-signal-700: #b84400;
+
+  /* --- Prüfstatus --- */
+  --color-pruef-500: #167d52;
+  --color-pruef-100: #dcf0e6;
+
+  /* --- Schrift --- */
+  --font-display: var(--schrift-display), 'Archivo', system-ui, sans-serif;
+  --font-sans: var(--schrift-display), 'Archivo', system-ui, sans-serif;
+  --font-mono: var(--schrift-mono), 'Chivo Mono', ui-monospace, monospace;
+
+  /* --- Radien: der Katalog kennt kaum Rundungen --- */
+  --radius-katalog: 2px;
+
+  /* --- Rhythmus --- */
+  --spacing-sektion: 5.5rem;
+  --spacing-sektion-lg: 8rem;
+}
+
+/* ------------------------------------------------------------------
+   Grundlagen
+   ------------------------------------------------------------------ */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Sticky-Header nicht über Ankerziele legen */
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--color-blatt-100);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv01';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Sichtbarer, materialgerechter Fokus: die Positionsmarke */
+  :focus-visible {
+    outline: 3px solid var(--color-signal-500);
+    outline-offset: 2px;
+    border-radius: 1px;
+  }
+
+  /* Auf dem Negativgrund muss der Fokus hell bleiben */
+  .auf-negativ :focus-visible {
+    outline-color: var(--color-signal-500);
+    box-shadow: 0 0 0 5px rgb(255 106 19 / 0.25);
+  }
+
+  ::selection {
+    background-color: var(--color-signal-500);
+    color: var(--color-ink-950);
+  }
+
+  /*
+     Deutsche Komposita sind lang: „Unfallinstandsetzung" passt auf einem
+     412 px breiten Telefon in keine Zeile und schöbe die ganze Seite zur
+     Seite. Silbentrennung ist hier keine Feinheit, sondern Voraussetzung —
+     sie greift, weil <html lang="de"> gesetzt ist. Der Umbruch mitten im Wort
+     bleibt als letztes Netz, falls ein Browser nicht trennen kann.
+  */
+  body {
+    overflow-wrap: break-word;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    hyphens: auto;
+  }
+
+  p,
+  li,
+  dt,
+  dd,
+  blockquote {
+    hyphens: auto;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Bilder nie über den Container hinaus */
+  img,
+  svg,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Katalog-Grammatik
+   ------------------------------------------------------------------ */
+
+@utility raster-negativ {
+  /* Das Millimeterraster des Katalogblatts, auf dem Negativ */
+  background-image:
+    linear-gradient(to right, rgb(116 168 191 / 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(116 168 191 / 0.09) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+}
+
+@utility raster-positiv {
+  background-image:
+    linear-gradient(to right, rgb(31 66 86 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(31 66 86 / 0.06) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+}
+
+/* Die Positionsnummer — das wiederkehrende Zeichen des Katalogs */
+@utility pos-nummer {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* Technisches Label über einer Überschrift */
+@utility katalog-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------
+   Bewegung: das Auseinanderziehen der Zeichnung
+   ------------------------------------------------------------------ */
+
+@keyframes explosion-marke {
+  from {
+    opacity: 0;
+    transform: translate(var(--von-x, 0), var(--von-y, 0)) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes leitlinie-ziehen {
+  from {
+    stroke-dashoffset: var(--linien-laenge, 200);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes riss-auf {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animiert-marke {
+  animation: explosion-marke 0.62s cubic-bezier(0.16, 0.84, 0.44, 1) both;
+}
+
+@utility animiert-linie {
+  stroke-dasharray: var(--linien-laenge, 200);
+  animation: leitlinie-ziehen 0.75s cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+
+@utility animiert-auf {
+  animation: riss-auf 0.5s cubic-bezier(0.16, 0.84, 0.44, 1) both;
+}
