@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "playwright test",
     "preview": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:pages": "npm run build && wrangler pages deploy out --project-name automobile-beckmann"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.11",

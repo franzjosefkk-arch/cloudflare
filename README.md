@@ -8,7 +8,7 @@ Formular und über den Anruf, der in diesem Gewerbe mindestens genauso gut konve
 | | |
 |---|---|
 | **Stack** | Next.js 16 (App Router, `output: 'export'`) · TypeScript strict · Tailwind CSS 4 · Radix UI |
-| **Deployment** | Cloudflare Worker mit statischen Assets — siehe [DEPLOYMENT.md](DEPLOYMENT.md) |
+| **Deployment** | Cloudflare — als Worker mit Assets oder als Pages, siehe [DEPLOYMENT.md](DEPLOYMENT.md) |
 | **Sprache** | Deutsch, Sie-Form |
 | **Tests** | Playwright, 70 Tests auf Desktop und Telefon, inkl. axe gegen WCAG 2.2 AA |
 
@@ -27,7 +27,8 @@ npm run lint         # ESLint
 npm test             # Playwright gegen ./out — setzt einen Build voraus
 
 npm run preview      # Build + wrangler dev — die Seite samt Endpunkt lokal
-npm run deploy       # Build + wrangler deploy — braucht CLOUDFLARE_API_TOKEN
+npm run deploy       # Build + Worker mit Assets — braucht CLOUDFLARE_API_TOKEN
+npm run deploy:pages # Build + Cloudflare Pages — dito
 ```
 
 ## Aufbau
@@ -49,6 +50,8 @@ components/
 
 worker/index.ts          Cloudflare Worker: beantwortet POST /api/anfrage,
                          alles andere geht direkt an die statischen Assets
+functions/api/anfrage.ts dieselbe Route für den Pages-Weg — beide Hüllen rufen
+                         lib/anfrage.ts auf, die Logik steht nur einmal da
 wrangler.jsonc           Deployment-Konfiguration
 
 lib/betrieb.ts           Einzige Quelle der Wahrheit für alle Betriebsdaten

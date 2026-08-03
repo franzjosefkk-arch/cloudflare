@@ -1,19 +1,29 @@
 # Deployment auf Cloudflare
 
-Die Seite läuft als **Worker mit statischen Assets** — so wie die übrigen Seiten in diesem
-Konto. Cloudflare liefert den Export aus `out/` direkt aus; der Worker
-(`worker/index.ts`) läuft nur für die eine Route, die eine statische Seite nicht selbst
-bedienen kann: `POST /api/anfrage`. Alles andere geht an den Assets-Dienst, ohne dass der
-Worker überhaupt startet (`run_worker_first`).
+Die Seite ist ein statischer Export in `out/`. Der einzige dynamische Teil ist die
+Terminanfrage. Deren Verarbeitung steht in `lib/anfrage.ts` als reine Funktion über `Request`
+und `Env` — beide Deployment-Wege benutzen dieselbe Logik, sie unterscheiden sich nur in der
+Hülle darum.
 
-Konfiguration steht in [`wrangler.jsonc`](wrangler.jsonc). Konto-ID ist bereits eingetragen.
+| | **Worker mit Assets** *(empfohlen)* | **Pages** |
+|---|---|---|
+| Hülle | `worker/index.ts` | `functions/api/anfrage.ts` |
+| Konfiguration | [`wrangler.jsonc`](wrangler.jsonc) | keine |
+| Befehl | `npm run deploy` | `npm run deploy:pages` |
+| Token braucht | Workers Scripts · Edit | Pages · Edit |
+| Adresse | `automobile-beckmann.<subdomain>.workers.dev` | `automobile-beckmann.pages.dev` |
+
+Der Worker-Weg ist der von Cloudflare inzwischen empfohlene und passt zu den übrigen Seiten in
+diesem Konto. Er beantwortet außerdem `GET /api/anfrage` korrekt mit 405; Pages gibt dort 404.
+Funktional macht das für die Website keinen Unterschied.
+
+**Konto-ID** ist in `wrangler.jsonc` bereits eingetragen.
 
 ## 1. API-Token anlegen
 
-Das ist das Einzige, was noch fehlt.
+Cloudflare Dashboard → **My Profile** → **API Tokens** → **Create Token**.
 
-Cloudflare Dashboard → **My Profile** → **API Tokens** → **Create Token** →
-Vorlage **„Edit Cloudflare Workers"**.
+Für den Worker-Weg die Vorlage **„Edit Cloudflare Workers"**:
 
 | Bereich | Berechtigung |
 |---|---|
@@ -22,6 +32,8 @@ Vorlage **„Edit Cloudflare Workers"**.
 | Zone · Workers Routes | Edit *(erst nötig, wenn die eigene Domain aufgeschaltet wird)* |
 | Zone · DNS | Edit *(dito)* |
 
+Für den Pages-Weg genügen **Pages · Edit** und **Account Settings · Read**.
+
 Token kopieren und als Umgebungsvariable setzen:
 
 ```bash
@@ -29,21 +41,23 @@ export CLOUDFLARE_API_TOKEN='...'
 ```
 
 Der Token ist ein Geheimnis. Er gehört nicht ins Repository und nicht in eine Datei, die
-committet wird.
+committet wird. Ein Token ohne Ablaufdatum sollte widerrufen werden, sobald es nicht mehr
+gebraucht wird.
 
 ## 2. Deployen
 
 ```bash
-npm run deploy      # baut und veröffentlicht in einem Schritt
+npm run deploy        # Worker mit statischen Assets
+npm run deploy:pages  # oder: Cloudflare Pages
 ```
 
-Danach liegt die Seite unter `https://automobile-beckmann.<subdomain>.workers.dev`.
 Wrangler nennt die genaue Adresse am Ende der Ausgabe.
 
 Vorher lokal ansehen — dafür braucht es keinen Token:
 
 ```bash
-npm run preview     # baut und startet wrangler dev auf http://localhost:8787
+npm run preview                    # Worker-Weg, http://localhost:8787
+npx wrangler pages dev out         # Pages-Weg
 ```
 
 ## 3. Formularversand einrichten
@@ -65,11 +79,17 @@ das, für den Betrieb nicht.
 
 ### 3.2 Schlüssel hinterlegen
 
+Worker-Weg:
+
 ```bash
 npx wrangler secret put RESEND_API_KEY
 ```
 
-Empfänger- und Absenderadresse stehen als `vars` in `wrangler.jsonc` und sind nicht geheim.
+Pages-Weg: Dashboard → das Projekt → **Settings** → **Environment variables** →
+`RESEND_API_KEY` als **Secret** anlegen, dazu `EMPFAENGER` und `ABSENDER` als Text.
+
+Empfänger- und Absenderadresse stehen für den Worker-Weg als `vars` in `wrangler.jsonc` und
+sind nicht geheim.
 Die Absenderadresse muss auf der in 3.1 verifizierten Domain liegen. Antwortet der Betrieb auf
 die Benachrichtigung, geht die Antwort dank `reply_to` direkt an den Kunden.
 
